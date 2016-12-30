@@ -70,38 +70,56 @@ public class ChunkDirectMoveMemoryImpl implements ChunkMemoryAllotInf {
     }
 
     @Override
-    public void recyleMem(MycatBufferBase buffer) {
+    public boolean recyleMem(MycatBufferBase buffer) {
+        // 验证当前的buffer再进行回收
+        if (null != buffer && buffer instanceof DirectMycatBufferMoveImpl) {
 
-        if (buffer.limit() < buffer.capacity()) {
+            if (buffer.limit() < buffer.capacity()) {
 
-            // 计算chunk归还的数量
-            int chunkNum = (int) (buffer.capacity() - buffer.limit()) / CHUNK_SIZE;
+                // 转换成原始的移动对象
+                DirectMycatBufferMoveImpl directMoveMemory = (DirectMycatBufferMoveImpl) buffer;
 
-            // 获得内存buffer
-            DirectMemAddressInf thisNavBuf = (DirectMemAddressInf) buffer;
-            // attachment对象在buf.slice();的时候将attachment对象设置为总的buff对象
-            DirectMemAddressInf parentBuf = (DirectMemAddressInf) thisNavBuf.getAttach();
+                // 计算chunk归还的数量
+                int chunkNum = (int) (buffer.capacity() - buffer.limit()) / CHUNK_SIZE;
 
-            int chunkAdd = buffer.limit() % CHUNK_SIZE == 0 ? (int) buffer.limit() / CHUNK_SIZE
-                    : (int) buffer.limit() / CHUNK_SIZE + 1;
-            // 已经使用的地址减去父类最开始的地址，即为所有已经使用的地址，除以chunkSize得到chunk当前开始的地址,得到整块内存开始的地址
-            int startChunk = (int) ((thisNavBuf.address() - parentBuf.address()) / CHUNK_SIZE) + chunkAdd;
+                // 获得内存buffer
+                DirectMemAddressInf thisNavBuf = (DirectMemAddressInf) buffer;
+                // attachment对象在buf.slice();的时候将attachment对象设置为总的buff对象
+                DirectMemAddressInf parentBuf = (DirectMemAddressInf) thisNavBuf.getAttach();
 
-            boolean recyProc = false;
+                int chunkAdd = buffer.limit() % CHUNK_SIZE == 0 ? (int) buffer.limit() / CHUNK_SIZE
+                        : (int) buffer.limit() / CHUNK_SIZE + 1;
+                // 已经使用的地址减去父类最开始的地址，即为所有已经使用的地址，除以chunkSize得到chunk当前开始的地址,得到整块内存开始的地址
+                int startChunk = (int) ((thisNavBuf.address() - parentBuf.address()) / CHUNK_SIZE) + chunkAdd;
 
-            for (DirectMoveBufferPage pageMemory : POOL) {
-                if ((recyProc = pageMemory.recycleBuffer((MycatBufferBase) parentBuf, startChunk, chunkNum)) == true) {
-                    break;
+                boolean recyProc = false;
+
+                for (DirectMoveBufferPage pageMemory : POOL) {
+                    if ((recyProc = pageMemory.recycleBuffer((MycatBufferBase) parentBuf, startChunk,
+                            chunkNum)) == true) {
+
+                        // 标识开始与结束号
+                        int startIndex = startChunk * CHUNK_SIZE;
+                        int end = directMoveMemory.getMemEndPosition() - chunkNum * CHUNK_SIZE;
+
+                        directMoveMemory.setMemStartPosition(startIndex);
+                        directMoveMemory.setMemEndPosition(end);
+
+                        break;
+                    }
                 }
+
+                if (!recyProc) {
+                    System.out.println("memory recycle fail");
+                }
+            } else {
+                System.out.println("not memory recycle");
             }
 
-            if (!recyProc) {
-                System.out.println("memory recycle fail");
-            }
-        } else {
-            System.out.println("not memory recycle");
+            return true;
         }
 
+        return false;
     }
 
 }
