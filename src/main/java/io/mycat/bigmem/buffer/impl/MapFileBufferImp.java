@@ -280,7 +280,7 @@ public class MapFileBufferImp extends MycatBufferBase implements MycatSwapBufer,
         // 验证当前内存整理标识
         checkClearFlag();
 
-        int currPosition = this.getPosition;
+        int currPosition = this.putPosition;
         int cap = this.limit - currPosition;
         long address = this.address + currPosition;
         // 生新新的引用对象
@@ -410,6 +410,17 @@ public class MapFileBufferImp extends MycatBufferBase implements MycatSwapBufer,
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
+    }
+
+    @Override
+    public void memoryCopy(long srcAddress, long targerAddress, int length) {
+
+        // 验证当前内存整理标识
+        checkClearFlag();
+
+        // 进行堆外的内存的拷贝操作
+        unsafe.copyMemory(null, srcAddress, null, targerAddress, length);
+
     }
 
     @Override

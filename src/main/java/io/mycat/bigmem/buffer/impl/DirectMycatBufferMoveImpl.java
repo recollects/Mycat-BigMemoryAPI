@@ -43,16 +43,6 @@ public class DirectMycatBufferMoveImpl extends MycatBufferBase implements MycatM
     private Semaphore accessReq = new Semaphore(1);
 
     /**
-     * 使用的内存的开始索引号
-     */
-    private int memStartPosition;
-
-    /**
-     * 使用的内存的结束的索引号
-     */
-    private int memEndPosition;
-
-    /**
      * 构造方法，进行内存容量的分配操作
     * 构造方法
     * @param memorySize 内存容量信息
@@ -70,8 +60,7 @@ public class DirectMycatBufferMoveImpl extends MycatBufferBase implements MycatM
         this.capacity = memorySize;
     }
 
-    public DirectMycatBufferMoveImpl(DirectMycatBufferMoveImpl dirbuffer, int position, int limit, long address,
-            int memStartPosition, int memEndPosition) {
+    public DirectMycatBufferMoveImpl(DirectMycatBufferMoveImpl dirbuffer, int position, int limit, long address) {
         this.putPosition = position;
         this.limit = limit;
         // 设置容量
@@ -79,10 +68,6 @@ public class DirectMycatBufferMoveImpl extends MycatBufferBase implements MycatM
         this.address = address;
         this.att = dirbuffer;
         this.unsafe = dirbuffer.unsafe;
-        // 开始的索引号
-        this.memStartPosition = memStartPosition;
-        // 结束的索引号
-        this.memEndPosition = memEndPosition;
     }
 
     private long getIndex(long offset) {
@@ -139,11 +124,11 @@ public class DirectMycatBufferMoveImpl extends MycatBufferBase implements MycatM
         // 验证当前是否在进行内存整理
         checkClearFlag();
 
-        int currPosition = this.getPosition;
+        int currPosition = this.putPosition;
         int cap = this.limit - currPosition;
         long address = this.address + currPosition;
         // 生新新的引用对象
-        return new DirectMycatBufferMoveImpl(this, 0, cap, address, this.getPosition, this.limit);
+        return new DirectMycatBufferMoveImpl(this, 0, cap, address);
     }
 
     /**
@@ -153,7 +138,7 @@ public class DirectMycatBufferMoveImpl extends MycatBufferBase implements MycatM
     * @创建日期 2016年12月23日
     */
     private long addPutPos() {
-        if (this.putPosition > this.limit)
+        if (this.putPosition >= this.limit)
             throw new BufferOverflowException();
         return this.putPosition++;
     }
@@ -254,20 +239,15 @@ public class DirectMycatBufferMoveImpl extends MycatBufferBase implements MycatM
         return this.clearFlag;
     }
 
-    public int getMemStartPosition() {
-        return memStartPosition;
-    }
+    @Override
+    public void memoryCopy(long srcAddress, long targerAddress, int length) {
 
-    public void setMemStartPosition(int memStartPosition) {
-        this.memStartPosition = memStartPosition;
-    }
+        // 验证当前内存整理标识
+        checkClearFlag();
 
-    public int getMemEndPosition() {
-        return memEndPosition;
-    }
+        // 进行堆外的内存的拷贝操作
+        unsafe.copyMemory(null, srcAddress, null, targerAddress, length);
 
-    public void setMemEndPosition(int memEndPosition) {
-        this.memEndPosition = memEndPosition;
     }
 
 }
